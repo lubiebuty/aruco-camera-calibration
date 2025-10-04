@@ -184,7 +184,7 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
         print(f"Rozmiar kwadratu: {square_size_mm} mm")
         print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
         
-        # Generowanie wzorca ChArUco (szachownica + markery ARUCO w rogach)
+        # Generowanie wzorca ChArUco (pełna szachownica + markery ARUCO w rogach)
         marker_id = 0
         
         # Najpierw narysuj całą szachownicę
@@ -202,44 +202,42 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
                     ax.add_patch(patches.Rectangle((x, y), square_size_mm, square_size_mm, 
                                                  facecolor='white', edgecolor='black'))
         
-        # Teraz dodaj markery ARUCO w rogach czarnych kwadratów
+        # Teraz dodaj markery ARUCO w rogach WSZYSTKICH kwadratów
         for row in range(squares_per_col):
             for col in range(squares_per_row):
                 if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
                     break
                     
-                # Tylko czarne kwadraty mają markery ARUCO
-                if (row + col) % 2 == 0:
-                    # Pozycja kwadratu w mm
-                    x = margin_mm + col * square_size_mm
-                    y = margin_mm + row * square_size_mm
+                # Pozycja kwadratu w mm
+                x = margin_mm + col * square_size_mm
+                y = margin_mm + row * square_size_mm
+                
+                # Markery ARUCO w rogach każdego kwadratu
+                corners = [
+                    (x, y),  # lewy dolny
+                    (x + square_size_mm - marker_size_mm, y),  # prawy dolny
+                    (x + square_size_mm - marker_size_mm, y + square_size_mm - marker_size_mm),  # prawy górny
+                    (x, y + square_size_mm - marker_size_mm)  # lewy górny
+                ]
+                
+                # Dodaj markery w każdym rogu
+                for corner_x, corner_y in corners:
+                    if marker_id >= 250:
+                        break
+                        
+                    # Generowanie markera ARUCO
+                    marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, int(marker_size_mm * MM_TO_POINTS))
                     
-                    # Markery ARUCO w rogach czarnego kwadratu
-                    corners = [
-                        (x, y),  # lewy dolny
-                        (x + square_size_mm - marker_size_mm, y),  # prawy dolny
-                        (x + square_size_mm - marker_size_mm, y + square_size_mm - marker_size_mm),  # prawy górny
-                        (x, y + square_size_mm - marker_size_mm)  # lewy górny
-                    ]
+                    # Konwersja markera na obraz matplotlib
+                    marker_rgb = cv2.cvtColor(marker, cv2.COLOR_GRAY2RGB)
+                    marker_rgb = marker_rgb / 255.0  # Normalizacja do 0-1
                     
-                    # Dodaj markery w każdym rogu (opcjonalnie - można ograniczyć do niektórych rogów)
-                    for corner_x, corner_y in corners:
-                        if marker_id >= 250:
-                            break
-                            
-                        # Generowanie markera ARUCO
-                        marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, int(marker_size_mm * MM_TO_POINTS))
-                        
-                        # Konwersja markera na obraz matplotlib
-                        marker_rgb = cv2.cvtColor(marker, cv2.COLOR_GRAY2RGB)
-                        marker_rgb = marker_rgb / 255.0  # Normalizacja do 0-1
-                        
-                        # Umieszczenie markera na wykresie
-                        ax.imshow(marker_rgb, extent=[corner_x, corner_x + marker_size_mm, 
-                                                    corner_y, corner_y + marker_size_mm], 
-                                aspect='equal', origin='lower')
-                        
-                        marker_id += 1
+                    # Umieszczenie markera na wykresie
+                    ax.imshow(marker_rgb, extent=[corner_x, corner_x + marker_size_mm, 
+                                                corner_y, corner_y + marker_size_mm], 
+                            aspect='equal', origin='lower')
+                    
+                    marker_id += 1
         
         # Dodanie wzorca skali 10 cm (100 mm)
         scale_length_mm = 100
