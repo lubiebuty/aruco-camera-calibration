@@ -64,15 +64,13 @@ python camera_calibration.py
 - Rozdzielczość: 72 DPI (standardowa) + 300 DPI (wysoka jakość)
 
 ## Pliki wyjściowe
-- `patterns/charuco_calibration_pattern.png` - wzorzec standardowy (72 DPI)
-- `patterns/charuco_calibration_pattern_print_quality.png` - **wzorzec do wydruku (300 DPI)**
-- `patterns/charuco_calibration_pattern_[timestamp].png` - wzorce z timestamp
+- `patterns/charuco_calibration_pattern.png` - **wzorzec do wydruku (300 DPI)**
 - `camera_calibration.json` - parametry kalibracji (JSON)
 - `camera_calibration.xml` - parametry kalibracji (OpenCV XML)
 
 ## Proces kalibracji
 1. Wygeneruj wzorzec ChArUco (`python generate_aruco_pattern.py`)
-2. **Wydrukuj plik `patterns/charuco_calibration_pattern_print_quality.png` w skali 100% na papierze A4**
+2. **Wydrukuj plik `patterns/charuco_calibration_pattern.png` w skali 100% na papierze A4**
 3. Uruchom kalibrację (`python camera_calibration.py`)
 4. Umieść wzorzec przed kamerą
 5. Zmieniaj pozycję wzorca między zdjęciami
@@ -81,7 +79,7 @@ python camera_calibration.py
 8. Program automatycznie obliczy parametry kamery
 
 ## Instrukcje wydruku
-- **Użyj pliku**: `patterns/charuco_calibration_pattern_print_quality.png`
+- **Użyj pliku**: `patterns/charuco_calibration_pattern.png`
 - **Skala**: 100% (bez skalowania)
 - **Papier**: A4
 - **Orientacja**: Pionowa

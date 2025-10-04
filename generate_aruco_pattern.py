@@ -124,35 +124,14 @@ def generate_charuco_pattern():
 
 def save_pattern(img, filename="charuco_calibration_pattern.png"):
     """
-    Zapisuje wzorzec do pliku PNG w folderze projektu
-    Zapisuje w dwóch wersjach: standardowej i wysokiej rozdzielczości dla wydruku
+    Zapisuje wzorzec ChArUco do pliku PNG w folderze projektu
+    Generuje tylko jeden plik wysokiej jakości (300 DPI) gotowy do wydruku
     """
     # Utwórz folder 'patterns' jeśli nie istnieje
     patterns_dir = "patterns"
     if not os.path.exists(patterns_dir):
         os.makedirs(patterns_dir)
         print(f"Utworzono folder: {patterns_dir}")
-    
-    # Dodaj timestamp do nazwy pliku
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name, ext = os.path.splitext(filename)
-    timestamped_filename = f"{name}_{timestamp}{ext}"
-    
-    # Pełna ścieżka do pliku
-    full_path = os.path.join(patterns_dir, timestamped_filename)
-    
-    # Zapisz wzorzec standardowy
-    cv2.imwrite(full_path, img)
-    print(f"Wzorzec zapisany jako: {full_path}")
-    
-    # Zapisz również podstawową wersję bez timestamp
-    basic_path = os.path.join(patterns_dir, filename)
-    cv2.imwrite(basic_path, img)
-    print(f"Wzorzec zapisany również jako: {basic_path}")
-    
-    # Zapisz wersję wysokiej rozdzielczości dla wydruku (300 DPI)
-    print_quality_filename = f"{name}_print_quality_{timestamp}{ext}"
-    print_quality_path = os.path.join(patterns_dir, print_quality_filename)
     
     # Skaluj obraz do wysokiej rozdzielczości (300 DPI)
     scale_factor = 300.0 / 72.0  # 300 DPI / 72 DPI
@@ -162,16 +141,14 @@ def save_pattern(img, filename="charuco_calibration_pattern.png"):
     # Użyj INTER_CUBIC dla lepszej jakości skalowania
     high_res_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
     
-    # Zapisz wysoką rozdzielczość
-    cv2.imwrite(print_quality_path, high_res_img)
-    print(f"Wzorzec wysokiej jakości (300 DPI) zapisany jako: {print_quality_path}")
+    # Pełna ścieżka do pliku
+    full_path = os.path.join(patterns_dir, filename)
     
-    # Zapisz również podstawową wersję wysokiej jakości
-    print_basic_path = os.path.join(patterns_dir, f"{name}_print_quality{ext}")
-    cv2.imwrite(print_basic_path, high_res_img)
-    print(f"Wzorzec wysokiej jakości zapisany również jako: {print_basic_path}")
+    # Zapisz wzorzec wysokiej jakości
+    cv2.imwrite(full_path, high_res_img)
+    print(f"Wzorzec ChArUco wysokiej jakości (300 DPI) zapisany jako: {full_path}")
     
-    return full_path, basic_path, print_quality_path, print_basic_path
+    return full_path
 
 def display_pattern(img):
     """
@@ -195,24 +172,19 @@ def main():
     img, dpi = generate_charuco_pattern()
     
     # Zapisanie wzorca
-    timestamped_path, basic_path, print_quality_path, print_basic_path = save_pattern(img)
+    pattern_path = save_pattern(img)
     
-    # Wyświetlenie wzorca
-    display_pattern(img)
+    # Wyświetlenie wzorca (opcjonalne)
+    # display_pattern(img)
     
     print("\n=== Informacje o wzorcu ChArUco ===")
-    print(f"Rozdzielczość: {dpi} DPI")
+    print(f"Rozdzielczość: {dpi} DPI (skalowane do 300 DPI)")
     print(f"Wymiary A4: 210 x 297 mm")
     print(f"Wzorzec skali: 100 mm")
     print(f"Rozmiar kwadratu szachownicy: 20 mm")
     print(f"Rozmiar markera ARUCO: 16 mm")
     print(f"Zapisano w folderze: patterns/")
-    print(f"\nPliki wygenerowane:")
-    print(f"  - Standardowy: {os.path.basename(basic_path)}")
-    print(f"  - Z timestamp: {os.path.basename(timestamped_path)}")
-    print(f"  - Wysoka jakość: {os.path.basename(print_basic_path)}")
-    print(f"  - Wysoka jakość z timestamp: {os.path.basename(print_quality_path)}")
-    print(f"\n📄 DO WYDRUKU UŻYJ: {os.path.basename(print_basic_path)}")
+    print(f"\n📄 PLIK DO WYDRUKU: {os.path.basename(pattern_path)}")
     print("✅ Wzorzec ChArUco gotowy do wydruku w skali 100% na papierze A4!")
 
 if __name__ == "__main__":
