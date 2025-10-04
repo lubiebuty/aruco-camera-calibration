@@ -125,8 +125,8 @@ def generate_charuco_pattern():
 
 def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     """
-    Generuje wzorzec ChArUco bezpośrednio w PDF z dokładnymi wymiarami A4
-    Gotowy do wydruku w skali 100% bez skalowania
+    Generuje wzorzec ChArUco w PDF z dokładnymi wymiarami A4
+    Używa OpenCV do generowania obrazu, potem konwertuje na PDF
     """
     # Utwórz folder 'patterns' jeśli nie istnieje
     patterns_dir = "patterns"
@@ -138,133 +138,122 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     A4_WIDTH_MM = 210
     A4_HEIGHT_MM = 297
     
-    # Konwersja mm na punkty (1 cal = 25.4 mm, 1 cal = 72 punkty)
-    MM_TO_POINTS = 72.0 / 25.4
-    width_points = A4_WIDTH_MM * MM_TO_POINTS
-    height_points = A4_HEIGHT_MM * MM_TO_POINTS
+    # Rozdzielczość DPI dla wysokiej jakości
+    DPI = 300
+    MM_TO_INCH = 25.4
+    
+    # Konwersja mm na piksele
+    width_px = int(A4_WIDTH_MM * DPI / MM_TO_INCH)
+    height_px = int(A4_HEIGHT_MM * DPI / MM_TO_INCH)
     
     print(f"Wymiary A4: {A4_WIDTH_MM}x{A4_HEIGHT_MM} mm")
-    print(f"Wymiary w punktach: {width_points:.1f}x{height_points:.1f} pt")
+    print(f"Rozdzielczość: {DPI} DPI")
+    print(f"Rozmiar obrazu: {width_px}x{height_px} pikseli")
     
-    # Pełna ścieżka do pliku PDF
+    # Tworzenie białego tła
+    img = np.ones((height_px, width_px), dtype=np.uint8) * 255
+    
+    # Parametry ChArUco
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    
+    # Rozmiar kwadratu szachownicy w mm
+    square_size_mm = 20
+    square_size_px = int(square_size_mm * DPI / MM_TO_INCH)
+    
+    # Rozmiar markera ARUCO w mm (proporcjonalny do kwadratu)
+    marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
+    marker_size_px = int(marker_size_mm * DPI / MM_TO_INCH)
+    
+    # Marginesy w mm
+    margin_mm = 15
+    margin_px = int(margin_mm * DPI / MM_TO_INCH)
+    
+    # Obliczenie ile kwadratów zmieści się w rzędzie i kolumnie
+    available_width = width_px - 2 * margin_px
+    available_height = height_px - 2 * margin_px - int(100 * DPI / MM_TO_INCH)  # miejsce na wzorzec skali
+    
+    squares_per_row = available_width // square_size_px
+    squares_per_col = available_height // square_size_px
+    
+    print(f"Kwadraty w rzędzie: {squares_per_row}")
+    print(f"Kwadraty w kolumnie: {squares_per_col}")
+    print(f"Rozmiar kwadratu: {square_size_mm} mm")
+    print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
+    
+    # Generowanie wzorca ChArUco
+    marker_id = 0
+    for row in range(squares_per_col):
+        for col in range(squares_per_row):
+            if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
+                break
+                
+            # Pozycja kwadratu
+            x = margin_px + col * square_size_px
+            y = margin_px + row * square_size_px
+            
+            # Rysowanie kwadratu szachownicy
+            if (row + col) % 2 == 0:  # Czarny kwadrat
+                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 0, -1)
+                
+                # Dodanie markera ARUCO w środku czarnego kwadratu
+                marker_x = x + (square_size_px - marker_size_px) // 2
+                marker_y = y + (square_size_px - marker_size_px) // 2
+                
+                # Generowanie markera ARUCO
+                marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, marker_size_px)
+                
+                # Umieszczenie markera na obrazie
+                img[marker_y:marker_y+marker_size_px, marker_x:marker_x+marker_size_px] = marker
+                
+                marker_id += 1
+            else:  # Biały kwadrat
+                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 255, -1)
+    
+    # Dodanie wzorca skali 10 cm (100 mm)
+    scale_length_mm = 100
+    scale_length_px = int(scale_length_mm * DPI / MM_TO_INCH)
+    
+    # Pozycja wzorca skali (na dole kartki)
+    scale_y = height_px - int(50 * DPI / MM_TO_INCH)
+    scale_x_start = width_px // 2 - scale_length_px // 2
+    scale_x_end = scale_x_start + scale_length_px
+    
+    # Rysowanie linii skali
+    cv2.line(img, (scale_x_start, scale_y), (scale_x_end, scale_y), 0, 3)
+    
+    # Dodanie oznaczeń końców linii
+    cv2.line(img, (scale_x_start, scale_y - 10), (scale_x_start, scale_y + 10), 0, 2)
+    cv2.line(img, (scale_x_end, scale_y - 10), (scale_x_end, scale_y + 10), 0, 2)
+    
+    # Dodanie tekstu z opisem skali
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.8
+    thickness = 2
+    
+    text = "100 mm"
+    text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+    text_x = scale_x_start + (scale_length_px - text_size[0]) // 2
+    text_y = scale_y + 30
+    
+    cv2.putText(img, text, (text_x, text_y), font, font_scale, 0, thickness)
+    
+    # Konwersja na PDF
     full_path = os.path.join(patterns_dir, filename)
     
-    # Utwórz PDF z dokładnymi wymiarami A4
+    # Użyj matplotlib do konwersji obrazu na PDF
+    fig, ax = plt.subplots(figsize=(A4_WIDTH_MM/25.4, A4_HEIGHT_MM/25.4), dpi=DPI)
+    ax.imshow(img, cmap='gray', extent=[0, A4_WIDTH_MM, 0, A4_HEIGHT_MM], aspect='equal', origin='lower')
+    ax.set_xlim(0, A4_WIDTH_MM)
+    ax.set_ylim(0, A4_HEIGHT_MM)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    
+    # Zapisz do PDF
     with PdfPages(full_path) as pdf:
-        fig, ax = plt.subplots(figsize=(A4_WIDTH_MM/25.4, A4_HEIGHT_MM/25.4), dpi=300)
-        
-        # Ustaw dokładne wymiary A4
-        ax.set_xlim(0, A4_WIDTH_MM)
-        ax.set_ylim(0, A4_HEIGHT_MM)
-        ax.set_aspect('equal')
-        
-        # Białe tło
-        ax.add_patch(patches.Rectangle((0, 0), A4_WIDTH_MM, A4_HEIGHT_MM, 
-                                     facecolor='white', edgecolor='none'))
-        
-        # Parametry ChArUco
-        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
-        
-        # Rozmiar kwadratu szachownicy w mm
-        square_size_mm = 20
-        marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
-        
-        # Marginesy w mm
-        margin_mm = 15
-        
-        # Obliczenie ile kwadratów zmieści się w rzędzie i kolumnie
-        available_width = A4_WIDTH_MM - 2 * margin_mm
-        available_height = A4_HEIGHT_MM - 2 * margin_mm - 100  # miejsce na wzorzec skali
-        
-        squares_per_row = int(available_width // square_size_mm)
-        squares_per_col = int(available_height // square_size_mm)
-        
-        print(f"Kwadraty w rzędzie: {squares_per_row}")
-        print(f"Kwadraty w kolumnie: {squares_per_col}")
-        print(f"Rozmiar kwadratu: {square_size_mm} mm")
-        print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
-        
-        # Generowanie wzorca ChArUco (pełna szachownica + markery ARUCO w rogach)
-        marker_id = 0
-        
-        # Najpierw narysuj całą szachownicę
-        for row in range(squares_per_col):
-            for col in range(squares_per_row):
-                # Pozycja kwadratu w mm
-                x = margin_mm + col * square_size_mm
-                y = margin_mm + row * square_size_mm
-                
-                # Rysowanie kwadratu szachownicy
-                if (row + col) % 2 == 0:  # Czarny kwadrat
-                    ax.add_patch(patches.Rectangle((x, y), square_size_mm, square_size_mm, 
-                                                 facecolor='black', edgecolor='black'))
-                else:  # Biały kwadrat
-                    ax.add_patch(patches.Rectangle((x, y), square_size_mm, square_size_mm, 
-                                                 facecolor='white', edgecolor='black'))
-        
-        # Teraz dodaj markery ARUCO w rogach WSZYSTKICH kwadratów
-        for row in range(squares_per_col):
-            for col in range(squares_per_row):
-                if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
-                    break
-                    
-                # Pozycja kwadratu w mm
-                x = margin_mm + col * square_size_mm
-                y = margin_mm + row * square_size_mm
-                
-                # Markery ARUCO w rogach każdego kwadratu
-                corners = [
-                    (x, y),  # lewy dolny
-                    (x + square_size_mm - marker_size_mm, y),  # prawy dolny
-                    (x + square_size_mm - marker_size_mm, y + square_size_mm - marker_size_mm),  # prawy górny
-                    (x, y + square_size_mm - marker_size_mm)  # lewy górny
-                ]
-                
-                # Dodaj markery w każdym rogu
-                for corner_x, corner_y in corners:
-                    if marker_id >= 250:
-                        break
-                        
-                    # Generowanie markera ARUCO
-                    marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, int(marker_size_mm * MM_TO_POINTS))
-                    
-                    # Konwersja markera na obraz matplotlib
-                    marker_rgb = cv2.cvtColor(marker, cv2.COLOR_GRAY2RGB)
-                    marker_rgb = marker_rgb / 255.0  # Normalizacja do 0-1
-                    
-                    # Umieszczenie markera na wykresie
-                    ax.imshow(marker_rgb, extent=[corner_x, corner_x + marker_size_mm, 
-                                                corner_y, corner_y + marker_size_mm], 
-                            aspect='equal', origin='lower')
-                    
-                    marker_id += 1
-        
-        # Dodanie wzorca skali 10 cm (100 mm)
-        scale_length_mm = 100
-        scale_y = 20  # 20mm od dołu
-        scale_x_start = A4_WIDTH_MM / 2 - scale_length_mm / 2
-        scale_x_end = scale_x_start + scale_length_mm
-        
-        # Rysowanie linii skali
-        ax.plot([scale_x_start, scale_x_end], [scale_y, scale_y], 'k-', linewidth=2)
-        
-        # Dodanie oznaczeń końców linii
-        ax.plot([scale_x_start, scale_x_start], [scale_y - 2, scale_y + 2], 'k-', linewidth=2)
-        ax.plot([scale_x_end, scale_x_end], [scale_y - 2, scale_y + 2], 'k-', linewidth=2)
-        
-        # Dodanie tekstu z opisem skali
-        ax.text(scale_x_start + scale_length_mm / 2, scale_y + 5, "100 mm", 
-               ha='center', va='bottom', fontsize=12, fontweight='bold')
-        
-        # Usuń osie i marginesy
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        
-        # Zapisz do PDF
         pdf.savefig(fig, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
     
