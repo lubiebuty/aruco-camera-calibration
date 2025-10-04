@@ -12,9 +12,9 @@ import matplotlib.patches as patches
 import os
 from datetime import datetime
 
-def generate_aruco_pattern():
+def generate_charuco_pattern():
     """
-    Generuje wzorzec ARUCO na kartce A4 z wzorcem skali
+    Generuje wzorzec ChArUco (szachownica + ARUCO) na kartce A4 z wzorcem skali
     Gotowy do wydruku w skali 100% na papierze A4
     """
     # Wymiary A4 w mm
@@ -36,50 +36,61 @@ def generate_aruco_pattern():
     # Tworzenie białego tła
     img = np.ones((height_px, width_px), dtype=np.uint8) * 255
     
-    # Parametry wzorca ARUCO
+    # Parametry ChArUco
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     
-    # Rozmiar pojedynczego markera ARUCO w mm (większy dla lepszej widoczności)
-    marker_size_mm = 30
+    # Rozmiar kwadratu szachownicy w mm
+    square_size_mm = 20
+    square_size_px = int(square_size_mm * DPI / MM_TO_INCH)
+    
+    # Rozmiar markera ARUCO w mm (proporcjonalny do kwadratu)
+    marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
     marker_size_px = int(marker_size_mm * DPI / MM_TO_INCH)
     
     # Marginesy w mm
     margin_mm = 15
     margin_px = int(margin_mm * DPI / MM_TO_INCH)
     
-    # Odstęp między markerami w mm
-    spacing_mm = 10
-    spacing_px = int(spacing_mm * DPI / MM_TO_INCH)
-    
-    # Obliczenie ile markerów zmieści się w rzędzie i kolumnie
+    # Obliczenie ile kwadratów zmieści się w rzędzie i kolumnie
     available_width = width_px - 2 * margin_px
     available_height = height_px - 2 * margin_px - 100  # miejsce na wzorzec skali
     
-    markers_per_row = (available_width + spacing_px) // (marker_size_px + spacing_px)
-    markers_per_col = (available_height + spacing_px) // (marker_size_px + spacing_px)
+    squares_per_row = available_width // square_size_px
+    squares_per_col = available_height // square_size_px
     
-    print(f"Markery w rzędzie: {markers_per_row}")
-    print(f"Markery w kolumnie: {markers_per_col}")
-    print(f"Rozmiar markera: {marker_size_mm} mm")
+    print(f"Kwadraty w rzędzie: {squares_per_row}")
+    print(f"Kwadraty w kolumnie: {squares_per_col}")
+    print(f"Rozmiar kwadratu: {square_size_mm} mm")
+    print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
     
-    # Generowanie markerów ARUCO
+    # Generowanie wzorca ChArUco
     marker_id = 0
-    for row in range(markers_per_col):
-        for col in range(markers_per_row):
+    for row in range(squares_per_col):
+        for col in range(squares_per_row):
             if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
                 break
                 
-            # Pozycja markera
-            x = margin_px + col * (marker_size_px + spacing_px)
-            y = margin_px + row * (marker_size_px + spacing_px)
+            # Pozycja kwadratu
+            x = margin_px + col * square_size_px
+            y = margin_px + row * square_size_px
             
-            # Generowanie markera
-            marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, marker_size_px)
-            
-            # Umieszczenie markera na obrazie
-            img[y:y+marker_size_px, x:x+marker_size_px] = marker
-            
-            marker_id += 1
+            # Rysowanie kwadratu szachownicy
+            if (row + col) % 2 == 0:  # Czarny kwadrat
+                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 0, -1)
+                
+                # Dodanie markera ARUCO w środku czarnego kwadratu
+                marker_x = x + (square_size_px - marker_size_px) // 2
+                marker_y = y + (square_size_px - marker_size_px) // 2
+                
+                # Generowanie markera ARUCO
+                marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, marker_size_px)
+                
+                # Umieszczenie markera na obrazie
+                img[marker_y:marker_y+marker_size_px, marker_x:marker_x+marker_size_px] = marker
+                
+                marker_id += 1
+            else:  # Biały kwadrat
+                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 255, -1)
     
     # Dodanie wzorca skali 10 cm (100 mm)
     scale_length_mm = 100
@@ -111,7 +122,7 @@ def generate_aruco_pattern():
     
     return img, DPI
 
-def save_pattern(img, filename="aruco_calibration_pattern.png"):
+def save_pattern(img, filename="charuco_calibration_pattern.png"):
     """
     Zapisuje wzorzec do pliku PNG w folderze projektu
     Zapisuje w dwóch wersjach: standardowej i wysokiej rozdzielczości dla wydruku
@@ -168,7 +179,7 @@ def display_pattern(img):
     """
     plt.figure(figsize=(12, 16))
     plt.imshow(img, cmap='gray')
-    plt.title('Wzorzec ARUCO do kalibracji kamery (A4)')
+    plt.title('Wzorzec ChArUco do kalibracji kamery (A4)')
     plt.axis('off')
     plt.tight_layout()
     plt.show()
@@ -177,11 +188,11 @@ def main():
     """
     Główna funkcja programu
     """
-    print("=== Generator wzorca ARUCO do kalibracji kamery ===")
-    print("Generowanie wzorca na kartce A4 z wzorcem skali 10 cm...")
+    print("=== Generator wzorca ChArUco do kalibracji kamery ===")
+    print("Generowanie wzorca ChArUco (szachownica + ARUCO) na kartce A4 z wzorcem skali 10 cm...")
     
     # Generowanie wzorca
-    img, dpi = generate_aruco_pattern()
+    img, dpi = generate_charuco_pattern()
     
     # Zapisanie wzorca
     timestamped_path, basic_path, print_quality_path, print_basic_path = save_pattern(img)
@@ -189,11 +200,12 @@ def main():
     # Wyświetlenie wzorca
     display_pattern(img)
     
-    print("\n=== Informacje o wzorcu ===")
+    print("\n=== Informacje o wzorcu ChArUco ===")
     print(f"Rozdzielczość: {dpi} DPI")
     print(f"Wymiary A4: 210 x 297 mm")
     print(f"Wzorzec skali: 100 mm")
-    print(f"Rozmiar markera: 30 mm")
+    print(f"Rozmiar kwadratu szachownicy: 20 mm")
+    print(f"Rozmiar markera ARUCO: 16 mm")
     print(f"Zapisano w folderze: patterns/")
     print(f"\nPliki wygenerowane:")
     print(f"  - Standardowy: {os.path.basename(basic_path)}")
@@ -201,7 +213,7 @@ def main():
     print(f"  - Wysoka jakość: {os.path.basename(print_basic_path)}")
     print(f"  - Wysoka jakość z timestamp: {os.path.basename(print_quality_path)}")
     print(f"\n📄 DO WYDRUKU UŻYJ: {os.path.basename(print_basic_path)}")
-    print("✅ Wzorzec gotowy do wydruku w skali 100% na papierze A4!")
+    print("✅ Wzorzec ChArUco gotowy do wydruku w skali 100% na papierze A4!")
 
 if __name__ == "__main__":
     main()

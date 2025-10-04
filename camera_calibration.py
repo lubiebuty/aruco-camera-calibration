@@ -10,18 +10,18 @@ import json
 import os
 from datetime import datetime
 
-def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
+def calibrate_camera_with_charuco(camera_id=0, num_images=20, square_size_mm=20):
     """
-    Kalibruje kamerę używając wzorca ARUCO
+    Kalibruje kamerę używając wzorca ChArUco
     
     Args:
         camera_id: ID kamery (domyślnie 0)
         num_images: Liczba zdjęć do kalibracji
-        marker_size_mm: Rozmiar markera w mm
+        square_size_mm: Rozmiar kwadratu szachownicy w mm
     """
-    print(f"=== Kalibracja kamery z ARUCO ===")
+    print(f"=== Kalibracja kamery z ChArUco ===")
     print(f"Liczba zdjęć: {num_images}")
-    print(f"Rozmiar markera: {marker_size_mm} mm")
+    print(f"Rozmiar kwadratu szachownicy: {square_size_mm} mm")
     
     # Inicjalizacja kamery
     cap = cv2.VideoCapture(camera_id)
@@ -29,7 +29,7 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
         print("Błąd: Nie można otworzyć kamery!")
         return None
     
-    # Parametry ARUCO
+    # Parametry ChArUco
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     aruco_params = cv2.aruco.DetectorParameters()
     detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
@@ -37,10 +37,12 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
     # Listy do przechowywania danych kalibracyjnych
     all_corners = []
     all_ids = []
+    all_charuco_corners = []
+    all_charuco_ids = []
     image_size = None
     
     print("\nInstrukcje:")
-    print("1. Umieść wzorzec ARUCO przed kamerą")
+    print("1. Umieść wzorzec ChArUco przed kamerą")
     print("2. Naciśnij SPACJA aby zrobić zdjęcie")
     print("3. Naciśnij ESC aby zakończyć")
     print("4. Zmieniaj pozycję wzorca między zdjęciami")
@@ -66,7 +68,7 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
             cv2.aruco.drawDetectedMarkers(frame_with_markers, corners, ids)
             
             # Wyświetl informacje o wykrytych markerach
-            cv2.putText(frame_with_markers, f"Wykryte markery: {len(ids)}", 
+            cv2.putText(frame_with_markers, f"Wykryte markery ARUCO: {len(ids)}", 
                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(frame_with_markers, f"Zdjęcie: {image_count + 1}/{num_images}", 
                        (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -76,12 +78,12 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
                 cv2.putText(frame_with_markers, "Naciśnij SPACJA aby zrobić zdjęcie", 
                            (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         else:
-            cv2.putText(frame_with_markers, "Nie wykryto markerów ARUCO", 
+            cv2.putText(frame_with_markers, "Nie wykryto markerów ChArUco", 
                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.putText(frame_with_markers, f"Zdjęcie: {image_count + 1}/{num_images}", 
                        (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         
-        cv2.imshow('Kalibracja kamery ARUCO', frame_with_markers)
+        cv2.imshow('Kalibracja kamery ChArUco', frame_with_markers)
         
         key = cv2.waitKey(1) & 0xFF
         
@@ -90,9 +92,9 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
                 all_corners.append(corners)
                 all_ids.append(ids)
                 image_count += 1
-                print(f"Zdjęcie {image_count} zapisane. Wykryto {len(ids)} markerów.")
+                print(f"Zdjęcie {image_count} zapisane. Wykryto {len(ids)} markerów ChArUco.")
             else:
-                print("Za mało markerów! Wymagane minimum 4 markery.")
+                print("Za mało markerów! Wymagane minimum 4 markery ChArUco.")
         
         elif key == 27:  # ESC - zakończ
             break
@@ -111,7 +113,7 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
     img_points = []
     
     # Rozmiar markera w jednostkach rzeczywistych (mm)
-    marker_size = marker_size_mm / 1000.0  # Konwersja na metry
+    marker_size = square_size_mm * 0.8 / 1000.0  # 80% rozmiaru kwadratu, konwersja na metry
     
     for i in range(len(all_corners)):
         # Punkty 3D dla każdego markera (względem rogu markera)
@@ -130,9 +132,9 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
     obj_points = np.array(obj_points, dtype=np.float32)
     img_points = np.array(img_points, dtype=np.float32)
     
-    # Kalibracja kamery
-    print("Wykonywanie kalibracji...")
-    ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+    # Kalibracja kamery używając cv2.aruco.calibrateCameraAruco
+    print("Wykonywanie kalibracji ChArUco...")
+    ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.aruco.calibrateCameraAruco(
         obj_points, img_points, image_size, None, None
     )
     
@@ -155,7 +157,8 @@ def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
             'camera_matrix': camera_matrix.tolist(),
             'dist_coeffs': dist_coeffs.tolist(),
             'image_size': image_size,
-            'marker_size_mm': marker_size_mm,
+            'square_size_mm': square_size_mm,
+            'marker_size_mm': square_size_mm * 0.8,
             'num_images': len(all_corners),
             'mean_reprojection_error': float(mean_error),
             'timestamp': datetime.now().isoformat()
@@ -289,7 +292,7 @@ def main():
     """
     Główna funkcja programu kalibracji
     """
-    print("=== System kalibracji kamery ARUCO ===")
+    print("=== System kalibracji kamery ChArUco ===")
     print("1. Kalibracja kamery")
     print("2. Test kalibracji")
     print("3. Walidacja kalibracji")
@@ -298,10 +301,10 @@ def main():
     
     if choice == "1":
         print("\nRozpoczynanie kalibracji kamery...")
-        marker_size = float(input("Podaj rozmiar markera w mm (domyślnie 30): ") or "30")
+        square_size = float(input("Podaj rozmiar kwadratu szachownicy w mm (domyślnie 20): ") or "20")
         num_images = int(input("Podaj liczbę zdjęć do kalibracji (domyślnie 20): ") or "20")
         
-        calibrate_camera_with_aruco(marker_size_mm=marker_size, num_images=num_images)
+        calibrate_camera_with_charuco(square_size_mm=square_size, num_images=num_images)
         
     elif choice == "2":
         print("\nTestowanie kalibracji...")
