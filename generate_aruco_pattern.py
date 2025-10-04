@@ -156,8 +156,8 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     # Parametry ChArUco
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     
-    # Marginesy w mm (zmniejszone dla maksymalnego wypełnienia)
-    margin_mm = 5
+    # Marginesy w mm (zwiększone dla lepszego wyglądu)
+    margin_mm = 10
     margin_px = int(margin_mm * DPI / MM_TO_INCH)
     
     # Miejsce na wzorzec skali w mm (minimalne - tylko na dole)
@@ -187,6 +187,10 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     # Obliczenie ile kwadratów zmieści się w rzędzie i kolumnie
     squares_per_row = available_width // square_size_px
     squares_per_col = available_height // square_size_px
+    
+    # Ograniczenie do 9x12 kwadratów dla lepszych marginesów
+    squares_per_row = min(squares_per_row, 9)
+    squares_per_col = min(squares_per_col, 12)
     
     print(f"Kwadraty w rzędzie: {squares_per_row}")
     print(f"Kwadraty w kolumnie: {squares_per_col}")
