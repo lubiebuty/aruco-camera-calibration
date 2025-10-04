@@ -160,13 +160,13 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     margin_mm = 5
     margin_px = int(margin_mm * DPI / MM_TO_INCH)
     
-    # Miejsce na wzorzec skali w mm
-    scale_space_mm = 30
+    # Miejsce na wzorzec skali w mm (minimalne - tylko na dole)
+    scale_space_mm = 15
     scale_space_px = int(scale_space_mm * DPI / MM_TO_INCH)
     
-    # Dostępna przestrzeń na szachownicę
+    # Dostępna przestrzeń na szachownicę (wzorzec skali tylko na dole)
     available_width = width_px - 2 * margin_px
-    available_height = height_px - 2 * margin_px - scale_space_px
+    available_height = height_px - margin_px - scale_space_px  # margines tylko na górze
     
     # Obliczenie optymalnego rozmiaru kwadratu dla maksymalnego wypełnienia
     # Szukamy największego kwadratu, który zmieści się w dostępnej przestrzeni
@@ -226,8 +226,8 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     scale_length_mm = 100
     scale_length_px = int(scale_length_mm * DPI / MM_TO_INCH)
     
-    # Pozycja wzorca skali (na dole kartki)
-    scale_y = height_px - int(50 * DPI / MM_TO_INCH)
+    # Pozycja wzorca skali (na samym dole kartki)
+    scale_y = height_px - int(10 * DPI / MM_TO_INCH)  # 10mm od dołu
     scale_x_start = width_px // 2 - scale_length_px // 2
     scale_x_end = scale_x_start + scale_length_px
     
