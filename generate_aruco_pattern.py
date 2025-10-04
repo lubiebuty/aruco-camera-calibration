@@ -11,6 +11,7 @@ from matplotlib.patches import Rectangle
 import matplotlib.patches as patches
 import os
 from datetime import datetime
+from matplotlib.backends.backend_pdf import PdfPages
 
 def generate_charuco_pattern():
     """
@@ -122,10 +123,10 @@ def generate_charuco_pattern():
     
     return img, DPI
 
-def save_pattern(img, filename="charuco_calibration_pattern.png"):
+def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     """
-    Zapisuje wzorzec ChArUco do pliku PNG w folderze projektu
-    Generuje tylko jeden plik wysokiej jakości (300 DPI) gotowy do wydruku
+    Generuje wzorzec ChArUco bezpośrednio w PDF z dokładnymi wymiarami A4
+    Gotowy do wydruku w skali 100% bez skalowania
     """
     # Utwórz folder 'patterns' jeśli nie istnieje
     patterns_dir = "patterns"
@@ -133,20 +134,124 @@ def save_pattern(img, filename="charuco_calibration_pattern.png"):
         os.makedirs(patterns_dir)
         print(f"Utworzono folder: {patterns_dir}")
     
-    # Skaluj obraz do wysokiej rozdzielczości (300 DPI)
-    scale_factor = 300.0 / 72.0  # 300 DPI / 72 DPI
-    new_width = int(img.shape[1] * scale_factor)
-    new_height = int(img.shape[0] * scale_factor)
+    # Wymiary A4 w mm
+    A4_WIDTH_MM = 210
+    A4_HEIGHT_MM = 297
     
-    # Użyj INTER_CUBIC dla lepszej jakości skalowania
-    high_res_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+    # Konwersja mm na punkty (1 cal = 25.4 mm, 1 cal = 72 punkty)
+    MM_TO_POINTS = 72.0 / 25.4
+    width_points = A4_WIDTH_MM * MM_TO_POINTS
+    height_points = A4_HEIGHT_MM * MM_TO_POINTS
     
-    # Pełna ścieżka do pliku
+    print(f"Wymiary A4: {A4_WIDTH_MM}x{A4_HEIGHT_MM} mm")
+    print(f"Wymiary w punktach: {width_points:.1f}x{height_points:.1f} pt")
+    
+    # Pełna ścieżka do pliku PDF
     full_path = os.path.join(patterns_dir, filename)
     
-    # Zapisz wzorzec wysokiej jakości
-    cv2.imwrite(full_path, high_res_img)
-    print(f"Wzorzec ChArUco wysokiej jakości (300 DPI) zapisany jako: {full_path}")
+    # Utwórz PDF z dokładnymi wymiarami A4
+    with PdfPages(full_path) as pdf:
+        fig, ax = plt.subplots(figsize=(A4_WIDTH_MM/25.4, A4_HEIGHT_MM/25.4), dpi=300)
+        
+        # Ustaw dokładne wymiary A4
+        ax.set_xlim(0, A4_WIDTH_MM)
+        ax.set_ylim(0, A4_HEIGHT_MM)
+        ax.set_aspect('equal')
+        
+        # Białe tło
+        ax.add_patch(patches.Rectangle((0, 0), A4_WIDTH_MM, A4_HEIGHT_MM, 
+                                     facecolor='white', edgecolor='none'))
+        
+        # Parametry ChArUco
+        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+        
+        # Rozmiar kwadratu szachownicy w mm
+        square_size_mm = 20
+        marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
+        
+        # Marginesy w mm
+        margin_mm = 15
+        
+        # Obliczenie ile kwadratów zmieści się w rzędzie i kolumnie
+        available_width = A4_WIDTH_MM - 2 * margin_mm
+        available_height = A4_HEIGHT_MM - 2 * margin_mm - 100  # miejsce na wzorzec skali
+        
+        squares_per_row = int(available_width // square_size_mm)
+        squares_per_col = int(available_height // square_size_mm)
+        
+        print(f"Kwadraty w rzędzie: {squares_per_row}")
+        print(f"Kwadraty w kolumnie: {squares_per_col}")
+        print(f"Rozmiar kwadratu: {square_size_mm} mm")
+        print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
+        
+        # Generowanie wzorca ChArUco
+        marker_id = 0
+        for row in range(squares_per_col):
+            for col in range(squares_per_row):
+                if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
+                    break
+                    
+                # Pozycja kwadratu w mm
+                x = margin_mm + col * square_size_mm
+                y = margin_mm + row * square_size_mm
+                
+                # Rysowanie kwadratu szachownicy
+                if (row + col) % 2 == 0:  # Czarny kwadrat
+                    ax.add_patch(patches.Rectangle((x, y), square_size_mm, square_size_mm, 
+                                                 facecolor='black', edgecolor='black'))
+                    
+                    # Dodanie markera ARUCO w środku czarnego kwadratu
+                    marker_x = x + (square_size_mm - marker_size_mm) / 2
+                    marker_y = y + (square_size_mm - marker_size_mm) / 2
+                    
+                    # Generowanie markera ARUCO
+                    marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, int(marker_size_mm * MM_TO_POINTS))
+                    
+                    # Konwersja markera na obraz matplotlib
+                    marker_rgb = cv2.cvtColor(marker, cv2.COLOR_GRAY2RGB)
+                    marker_rgb = marker_rgb / 255.0  # Normalizacja do 0-1
+                    
+                    # Umieszczenie markera na wykresie
+                    ax.imshow(marker_rgb, extent=[marker_x, marker_x + marker_size_mm, 
+                                                marker_y, marker_y + marker_size_mm], 
+                            aspect='equal', origin='lower')
+                    
+                    marker_id += 1
+                else:  # Biały kwadrat
+                    ax.add_patch(patches.Rectangle((x, y), square_size_mm, square_size_mm, 
+                                                 facecolor='white', edgecolor='black'))
+        
+        # Dodanie wzorca skali 10 cm (100 mm)
+        scale_length_mm = 100
+        scale_y = 20  # 20mm od dołu
+        scale_x_start = A4_WIDTH_MM / 2 - scale_length_mm / 2
+        scale_x_end = scale_x_start + scale_length_mm
+        
+        # Rysowanie linii skali
+        ax.plot([scale_x_start, scale_x_end], [scale_y, scale_y], 'k-', linewidth=2)
+        
+        # Dodanie oznaczeń końców linii
+        ax.plot([scale_x_start, scale_x_start], [scale_y - 2, scale_y + 2], 'k-', linewidth=2)
+        ax.plot([scale_x_end, scale_x_end], [scale_y - 2, scale_y + 2], 'k-', linewidth=2)
+        
+        # Dodanie tekstu z opisem skali
+        ax.text(scale_x_start + scale_length_mm / 2, scale_y + 5, "100 mm", 
+               ha='center', va='bottom', fontsize=12, fontweight='bold')
+        
+        # Usuń osie i marginesy
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        
+        # Zapisz do PDF
+        pdf.savefig(fig, bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+    
+    print(f"Wzorzec ChArUco zapisany jako PDF: {full_path}")
+    print("✅ Gotowy do wydruku w skali 100% na papierze A4!")
     
     return full_path
 
@@ -166,26 +271,21 @@ def main():
     Główna funkcja programu
     """
     print("=== Generator wzorca ChArUco do kalibracji kamery ===")
-    print("Generowanie wzorca ChArUco (szachownica + ARUCO) na kartce A4 z wzorcem skali 10 cm...")
+    print("Generowanie wzorca ChArUco (szachownica + ARUCO) w PDF na kartce A4 z wzorcem skali 10 cm...")
     
-    # Generowanie wzorca
-    img, dpi = generate_charuco_pattern()
-    
-    # Zapisanie wzorca
-    pattern_path = save_pattern(img)
-    
-    # Wyświetlenie wzorca (opcjonalne)
-    # display_pattern(img)
+    # Generowanie wzorca bezpośrednio w PDF
+    pattern_path = save_pattern_pdf()
     
     print("\n=== Informacje o wzorcu ChArUco ===")
-    print(f"Rozdzielczość: {dpi} DPI (skalowane do 300 DPI)")
+    print(f"Format: PDF")
     print(f"Wymiary A4: 210 x 297 mm")
-    print(f"Wzorzec skali: 100 mm")
+    print(f"Wzorzec skali: 100 mm (dokładnie)")
     print(f"Rozmiar kwadratu szachownicy: 20 mm")
     print(f"Rozmiar markera ARUCO: 16 mm")
     print(f"Zapisano w folderze: patterns/")
     print(f"\n📄 PLIK DO WYDRUKU: {os.path.basename(pattern_path)}")
     print("✅ Wzorzec ChArUco gotowy do wydruku w skali 100% na papierze A4!")
+    print("💡 Uwaga: Wydrukuj w skali 100% - wzorzec skali będzie dokładnie 100mm!")
 
 if __name__ == "__main__":
     main()

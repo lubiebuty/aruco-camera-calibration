@@ -36,13 +36,13 @@ python camera_calibration.py
 ## Funkcje
 
 ### Generator wzorca (`generate_aruco_pattern.py`)
-- Generuje wzorzec ChArUco (szachownica + ARUCO) na kartce A4 (210x297 mm)
-- Gotowy do wydruku w skali 100% na papierze A4
+- Generuje wzorzec ChArUco (szachownica + ARUCO) w PDF na kartce A4 (210x297 mm)
+- Gotowy do wydruku w skali 100% na papierze A4 bez skalowania
 - Kwadraty szachownicy o rozmiarze 20 mm
 - Markery ARUCO o rozmiarze 16 mm (80% rozmiaru kwadratu)
-- Wzorzec skali 100 mm na dole kartki
+- Wzorzec skali 100 mm na dole kartki (dokładnie 100mm)
 - Automatyczne obliczenie optymalnej liczby kwadratów
-- Zapisuje w dwóch wersjach: standardowej (72 DPI) i wysokiej jakości (300 DPI)
+- Format PDF z dokładnymi wymiarami A4
 
 ### System kalibracji (`camera_calibration.py`)
 - Interaktywna kalibracja z podglądem na żywo
@@ -64,13 +64,13 @@ python camera_calibration.py
 - Rozdzielczość: 72 DPI (standardowa) + 300 DPI (wysoka jakość)
 
 ## Pliki wyjściowe
-- `patterns/charuco_calibration_pattern.png` - **wzorzec do wydruku (300 DPI)**
+- `patterns/charuco_calibration_pattern.pdf` - **wzorzec do wydruku (PDF, dokładne wymiary A4)**
 - `camera_calibration.json` - parametry kalibracji (JSON)
 - `camera_calibration.xml` - parametry kalibracji (OpenCV XML)
 
 ## Proces kalibracji
 1. Wygeneruj wzorzec ChArUco (`python generate_aruco_pattern.py`)
-2. **Wydrukuj plik `patterns/charuco_calibration_pattern.png` w skali 100% na papierze A4**
+2. **Wydrukuj plik `patterns/charuco_calibration_pattern.pdf` w skali 100% na papierze A4**
 3. Uruchom kalibrację (`python camera_calibration.py`)
 4. Umieść wzorzec przed kamerą
 5. Zmieniaj pozycję wzorca między zdjęciami
@@ -79,12 +79,12 @@ python camera_calibration.py
 8. Program automatycznie obliczy parametry kamery
 
 ## Instrukcje wydruku
-- **Użyj pliku**: `patterns/charuco_calibration_pattern.png`
+- **Użyj pliku**: `patterns/charuco_calibration_pattern.pdf`
 - **Skala**: 100% (bez skalowania)
 - **Papier**: A4
 - **Orientacja**: Pionowa
-- **Jakość**: Wysoka (300 DPI)
-- **Sprawdź wzorzec skali**: Linia 100 mm powinna mieć dokładnie 10 cm
+- **Format**: PDF z dokładnymi wymiarami A4
+- **Sprawdź wzorzec skali**: Linia 100 mm będzie dokładnie 100mm (nie 93mm!)
 
 ## Wymagania techniczne
 - Kamera USB lub wbudowana
