@@ -37,10 +37,11 @@ python camera_calibration.py
 
 ### Generator wzorca (`generate_aruco_pattern.py`)
 - Generuje wzorzec ARUCO na kartce A4 (210x297 mm)
-- Rozdzielczość 300 DPI dla wysokiej jakości wydruku
-- Markery ARUCO o rozmiarze 20 mm
+- Gotowy do wydruku w skali 100% na papierze A4
+- Markery ARUCO o rozmiarze 30 mm (lepsza widoczność)
 - Wzorzec skali 100 mm na dole kartki
 - Automatyczne obliczenie optymalnej liczby markerów
+- Zapisuje w dwóch wersjach: standardowej (72 DPI) i wysokiej jakości (300 DPI)
 
 ### System kalibracji (`camera_calibration.py`)
 - Interaktywna kalibracja z podglądem na żywo
@@ -54,24 +55,36 @@ python camera_calibration.py
 
 ## Parametry wzorca
 - Słownik ARUCO: DICT_6X6_250
-- Rozmiar markera: 20 mm
-- Marginesy: 10 mm
-- Odstęp między markerami: 5 mm
+- Rozmiar markera: 30 mm (zwiększony dla lepszej widoczności)
+- Marginesy: 15 mm
+- Odstęp między markerami: 10 mm
 - Wzorzec skali: 100 mm
+- Rozdzielczość: 72 DPI (standardowa) + 300 DPI (wysoka jakość)
 
 ## Pliki wyjściowe
-- `aruco_calibration_pattern.png` - wzorzec gotowy do wydruku
+- `patterns/aruco_calibration_pattern.png` - wzorzec standardowy (72 DPI)
+- `patterns/aruco_calibration_pattern_print_quality.png` - **wzorzec do wydruku (300 DPI)**
+- `patterns/aruco_calibration_pattern_[timestamp].png` - wzorce z timestamp
 - `camera_calibration.json` - parametry kalibracji (JSON)
 - `camera_calibration.xml` - parametry kalibracji (OpenCV XML)
 
 ## Proces kalibracji
-1. Wydrukuj wzorzec ARUCO (`python generate_aruco_pattern.py`)
-2. Uruchom kalibrację (`python camera_calibration.py`)
-3. Umieść wzorzec przed kamerą
-4. Zmieniaj pozycję wzorca między zdjęciami
-5. Naciśnij SPACJA aby zrobić zdjęcie (minimum 5 zdjęć)
-6. Naciśnij ESC aby zakończyć
-7. Program automatycznie obliczy parametry kamery
+1. Wygeneruj wzorzec ARUCO (`python generate_aruco_pattern.py`)
+2. **Wydrukuj plik `patterns/aruco_calibration_pattern_print_quality.png` w skali 100% na papierze A4**
+3. Uruchom kalibrację (`python camera_calibration.py`)
+4. Umieść wzorzec przed kamerą
+5. Zmieniaj pozycję wzorca między zdjęciami
+6. Naciśnij SPACJA aby zrobić zdjęcie (minimum 5 zdjęć)
+7. Naciśnij ESC aby zakończyć
+8. Program automatycznie obliczy parametry kamery
+
+## Instrukcje wydruku
+- **Użyj pliku**: `patterns/aruco_calibration_pattern_print_quality.png`
+- **Skala**: 100% (bez skalowania)
+- **Papier**: A4
+- **Orientacja**: Pionowa
+- **Jakość**: Wysoka (300 DPI)
+- **Sprawdź wzorzec skali**: Linia 100 mm powinna mieć dokładnie 10 cm
 
 ## Wymagania techniczne
 - Kamera USB lub wbudowana

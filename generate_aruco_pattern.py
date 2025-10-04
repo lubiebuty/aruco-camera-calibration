@@ -9,17 +9,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.patches as patches
+import os
+from datetime import datetime
 
 def generate_aruco_pattern():
     """
     Generuje wzorzec ARUCO na kartce A4 z wzorcem skali
+    Gotowy do wydruku w skali 100% na papierze A4
     """
     # Wymiary A4 w mm
     A4_WIDTH_MM = 210
     A4_HEIGHT_MM = 297
     
-    # Rozdzielczość DPI (punktów na cal)
-    DPI = 300
+    # Rozdzielczość DPI dla wydruku (72 DPI = standardowa rozdzielczość ekranowa)
+    DPI = 72
     MM_TO_INCH = 25.4
     
     # Konwersja mm na piksele
@@ -28,6 +31,7 @@ def generate_aruco_pattern():
     
     print(f"Rozmiar obrazu: {width_px}x{height_px} pikseli")
     print(f"Rozdzielczość: {DPI} DPI")
+    print(f"Wymiary A4: {A4_WIDTH_MM}x{A4_HEIGHT_MM} mm")
     
     # Tworzenie białego tła
     img = np.ones((height_px, width_px), dtype=np.uint8) * 255
@@ -35,16 +39,16 @@ def generate_aruco_pattern():
     # Parametry wzorca ARUCO
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     
-    # Rozmiar pojedynczego markera ARUCO w mm
-    marker_size_mm = 20
+    # Rozmiar pojedynczego markera ARUCO w mm (większy dla lepszej widoczności)
+    marker_size_mm = 30
     marker_size_px = int(marker_size_mm * DPI / MM_TO_INCH)
     
     # Marginesy w mm
-    margin_mm = 10
+    margin_mm = 15
     margin_px = int(margin_mm * DPI / MM_TO_INCH)
     
     # Odstęp między markerami w mm
-    spacing_mm = 5
+    spacing_mm = 10
     spacing_px = int(spacing_mm * DPI / MM_TO_INCH)
     
     # Obliczenie ile markerów zmieści się w rzędzie i kolumnie
@@ -109,10 +113,54 @@ def generate_aruco_pattern():
 
 def save_pattern(img, filename="aruco_calibration_pattern.png"):
     """
-    Zapisuje wzorzec do pliku PNG
+    Zapisuje wzorzec do pliku PNG w folderze projektu
+    Zapisuje w dwóch wersjach: standardowej i wysokiej rozdzielczości dla wydruku
     """
-    cv2.imwrite(filename, img)
-    print(f"Wzorzec zapisany jako: {filename}")
+    # Utwórz folder 'patterns' jeśli nie istnieje
+    patterns_dir = "patterns"
+    if not os.path.exists(patterns_dir):
+        os.makedirs(patterns_dir)
+        print(f"Utworzono folder: {patterns_dir}")
+    
+    # Dodaj timestamp do nazwy pliku
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    name, ext = os.path.splitext(filename)
+    timestamped_filename = f"{name}_{timestamp}{ext}"
+    
+    # Pełna ścieżka do pliku
+    full_path = os.path.join(patterns_dir, timestamped_filename)
+    
+    # Zapisz wzorzec standardowy
+    cv2.imwrite(full_path, img)
+    print(f"Wzorzec zapisany jako: {full_path}")
+    
+    # Zapisz również podstawową wersję bez timestamp
+    basic_path = os.path.join(patterns_dir, filename)
+    cv2.imwrite(basic_path, img)
+    print(f"Wzorzec zapisany również jako: {basic_path}")
+    
+    # Zapisz wersję wysokiej rozdzielczości dla wydruku (300 DPI)
+    print_quality_filename = f"{name}_print_quality_{timestamp}{ext}"
+    print_quality_path = os.path.join(patterns_dir, print_quality_filename)
+    
+    # Skaluj obraz do wysokiej rozdzielczości (300 DPI)
+    scale_factor = 300.0 / 72.0  # 300 DPI / 72 DPI
+    new_width = int(img.shape[1] * scale_factor)
+    new_height = int(img.shape[0] * scale_factor)
+    
+    # Użyj INTER_CUBIC dla lepszej jakości skalowania
+    high_res_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+    
+    # Zapisz wysoką rozdzielczość
+    cv2.imwrite(print_quality_path, high_res_img)
+    print(f"Wzorzec wysokiej jakości (300 DPI) zapisany jako: {print_quality_path}")
+    
+    # Zapisz również podstawową wersję wysokiej jakości
+    print_basic_path = os.path.join(patterns_dir, f"{name}_print_quality{ext}")
+    cv2.imwrite(print_basic_path, high_res_img)
+    print(f"Wzorzec wysokiej jakości zapisany również jako: {print_basic_path}")
+    
+    return full_path, basic_path, print_quality_path, print_basic_path
 
 def display_pattern(img):
     """
@@ -136,7 +184,7 @@ def main():
     img, dpi = generate_aruco_pattern()
     
     # Zapisanie wzorca
-    save_pattern(img)
+    timestamped_path, basic_path, print_quality_path, print_basic_path = save_pattern(img)
     
     # Wyświetlenie wzorca
     display_pattern(img)
@@ -145,7 +193,15 @@ def main():
     print(f"Rozdzielczość: {dpi} DPI")
     print(f"Wymiary A4: 210 x 297 mm")
     print(f"Wzorzec skali: 100 mm")
-    print("Wzorzec gotowy do wydruku!")
+    print(f"Rozmiar markera: 30 mm")
+    print(f"Zapisano w folderze: patterns/")
+    print(f"\nPliki wygenerowane:")
+    print(f"  - Standardowy: {os.path.basename(basic_path)}")
+    print(f"  - Z timestamp: {os.path.basename(timestamped_path)}")
+    print(f"  - Wysoka jakość: {os.path.basename(print_basic_path)}")
+    print(f"  - Wysoka jakość z timestamp: {os.path.basename(print_quality_path)}")
+    print(f"\n📄 DO WYDRUKU UŻYJ: {os.path.basename(print_basic_path)}")
+    print("✅ Wzorzec gotowy do wydruku w skali 100% na papierze A4!")
 
 if __name__ == "__main__":
     main()

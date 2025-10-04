@@ -10,7 +10,7 @@ import json
 import os
 from datetime import datetime
 
-def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=20):
+def calibrate_camera_with_aruco(camera_id=0, num_images=20, marker_size_mm=30):
     """
     Kalibruje kamerę używając wzorca ARUCO
     
@@ -298,7 +298,7 @@ def main():
     
     if choice == "1":
         print("\nRozpoczynanie kalibracji kamery...")
-        marker_size = float(input("Podaj rozmiar markera w mm (domyślnie 20): ") or "20")
+        marker_size = float(input("Podaj rozmiar markera w mm (domyślnie 30): ") or "30")
         num_images = int(input("Podaj liczbę zdjęć do kalibracji (domyślnie 20): ") or "20")
         
         calibrate_camera_with_aruco(marker_size_mm=marker_size, num_images=num_images)
