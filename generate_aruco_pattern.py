@@ -156,22 +156,35 @@ def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
     # Parametry ChArUco
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     
-    # Rozmiar kwadratu szachownicy w mm
-    square_size_mm = 20
-    square_size_px = int(square_size_mm * DPI / MM_TO_INCH)
+    # Marginesy w mm (zmniejszone dla maksymalnego wypełnienia)
+    margin_mm = 5
+    margin_px = int(margin_mm * DPI / MM_TO_INCH)
+    
+    # Miejsce na wzorzec skali w mm
+    scale_space_mm = 30
+    scale_space_px = int(scale_space_mm * DPI / MM_TO_INCH)
+    
+    # Dostępna przestrzeń na szachownicę
+    available_width = width_px - 2 * margin_px
+    available_height = height_px - 2 * margin_px - scale_space_px
+    
+    # Obliczenie optymalnego rozmiaru kwadratu dla maksymalnego wypełnienia
+    # Szukamy największego kwadratu, który zmieści się w dostępnej przestrzeni
+    # Minimum 15px na kwadrat dla czytelności
+    min_square_size_px = 15
+    
+    # Obliczamy maksymalny rozmiar kwadratu na podstawie dostępnej przestrzeni
+    max_square_size_px = min(available_width, available_height) // 10  # maksymalnie 10 kwadratów w każdym kierunku
+    
+    # Wybieramy rozmiar kwadratu (minimum 15px, maksimum obliczony)
+    square_size_px = max(min_square_size_px, max_square_size_px)
+    square_size_mm = square_size_px * MM_TO_INCH / DPI
     
     # Rozmiar markera ARUCO w mm (proporcjonalny do kwadratu)
     marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
     marker_size_px = int(marker_size_mm * DPI / MM_TO_INCH)
     
-    # Marginesy w mm
-    margin_mm = 15
-    margin_px = int(margin_mm * DPI / MM_TO_INCH)
-    
     # Obliczenie ile kwadratów zmieści się w rzędzie i kolumnie
-    available_width = width_px - 2 * margin_px
-    available_height = height_px - 2 * margin_px - int(100 * DPI / MM_TO_INCH)  # miejsce na wzorzec skali
-    
     squares_per_row = available_width // square_size_px
     squares_per_col = available_height // square_size_px
     
