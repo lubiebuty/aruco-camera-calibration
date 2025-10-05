@@ -1,300 +1,125 @@
 #!/usr/bin/env python3
 """
-Generator wzorca ARUCO do kalibracji kamery
-Generuje wzorzec ARUCO na kartce A4 z dodatkowym wzorcem skali 10 cm
+Minimalny generator planszy ChArUco (A4, JPG, DPI) – tylko to, co potrzebne.
+- Szachownica: 4×6 pól
+- Rozmiar pola: 40 mm
+- Marker: 80% pola (32 mm)
+- Słownik: DICT_6X6_1000
+- Plansza wyśrodkowana na A4, poniżej czarna linia 100 mm do weryfikacji skali
+
+Drukuj w 100% (bez dopasowania). Po wydruku zmierz linię 100 mm.
+Wymaga: opencv-contrib-python, pillow
 """
 
+import os
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import matplotlib.patches as patches
-import os
-from datetime import datetime
-from matplotlib.backends.backend_pdf import PdfPages
+from PIL import Image
 
-def generate_charuco_pattern():
-    """
-    Generuje wzorzec ChArUco (szachownica + ARUCO) na kartce A4 z wzorcem skali
-    Gotowy do wydruku w skali 100% na papierze A4
-    """
-    # Wymiary A4 w mm
-    A4_WIDTH_MM = 210
-    A4_HEIGHT_MM = 297
-    
-    # Rozdzielczość DPI dla wydruku (72 DPI = standardowa rozdzielczość ekranowa)
-    DPI = 72
-    MM_TO_INCH = 25.4
-    
-    # Konwersja mm na piksele
-    width_px = int(A4_WIDTH_MM * DPI / MM_TO_INCH)
-    height_px = int(A4_HEIGHT_MM * DPI / MM_TO_INCH)
-    
-    print(f"Rozmiar obrazu: {width_px}x{height_px} pikseli")
-    print(f"Rozdzielczość: {DPI} DPI")
-    print(f"Wymiary A4: {A4_WIDTH_MM}x{A4_HEIGHT_MM} mm")
-    
-    # Tworzenie białego tła
-    img = np.ones((height_px, width_px), dtype=np.uint8) * 255
-    
-    # Parametry ChArUco
-    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_1000)
+MM_PER_INCH = 25.4
 
-    # Rozmiar kwadratu szachownicy w mm (wymagany przez użytkownika)
-    square_size_mm = 40
-    square_size_px = int(square_size_mm * DPI / MM_TO_INCH)
+# Domyślne parametry (zmień wedle potrzeb)
+SQUARES_X = 4
+SQUARES_Y = 6
+SQUARE_MM = 40.0
+MARKER_FRAC = 0.8  # 80% pola -> marker 32 mm
+DICT_NAME = 'DICT_6X6_1000'
+DPI = 300
+GAP_MM = 5.0       # odstęp między planszą a linią 100 mm
 
-    # Rozmiar markera ARUCO w mm (proporcjonalny do kwadratu)
-    marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
-    marker_size_px = int(marker_size_mm * DPI / MM_TO_INCH)
+# Pasek skali
+SCALE_MM = 100.0
+SCALE_THICK_MM = 1.2
+TICK_THICK_MM  = 0.8
+TICK_LEN_MM    = 8.0
+LABEL_OFFSET_MM = 2.5
 
-    # Wymiary planszy ChArUco: 4x6 pól (wymagane przez użytkownika)
-    squares_per_row = 4
-    squares_per_col = 6
+# A4 pion (mm)
+A4_W_MM, A4_H_MM = 210.0, 297.0
 
-    print(f"Kwadraty w rzędzie: {squares_per_row}")
-    print(f"Kwadraty w kolumnie: {squares_per_col}")
-    print(f"Rozmiar kwadratu: {square_size_mm} mm")
-    print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
 
-    # Oblicz wymiary całej planszy ChArUco
-    board_width_px = squares_per_row * square_size_px
-    board_height_px = squares_per_col * square_size_px
+def mm_to_px(mm: float, dpi: int) -> int:
+    return int(round(mm * dpi / MM_PER_INCH))
 
-    # Wyśrodkowanie planszy na kartce A4
-    x0 = (width_px - board_width_px) // 2
-    y0 = (height_px - board_height_px) // 2
 
-    # Generowanie wzorca ChArUco
-    marker_id = 0
-    for row in range(squares_per_col):
-        for col in range(squares_per_row):
-            if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
-                break
+def generate_charuco_jpg(out_path: str = 'patterns/charuco_4x6_40mm.jpg') -> str:
+    # Obraz A4 w pikselach (RGB, białe tło)
+    width_px  = mm_to_px(A4_W_MM, DPI)
+    height_px = mm_to_px(A4_H_MM, DPI)
+    img = np.full((height_px, width_px, 3), 255, np.uint8)
 
-            # Pozycja kwadratu
-            x = x0 + col * square_size_px
-            y = y0 + row * square_size_px
+    # Słownik ArUco
+    aruco = cv2.aruco
+    dictionary = aruco.getPredefinedDictionary(getattr(aruco, DICT_NAME))
 
-            # Rysowanie kwadratu szachownicy
-            if (row + col) % 2 == 0:  # Czarny kwadrat
-                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 0, -1)
+    # Wymiary planszy w px
+    square_px = mm_to_px(SQUARE_MM, DPI)
+    marker_px = mm_to_px(SQUARE_MM * MARKER_FRAC, DPI)
+    board_w_px = SQUARES_X * square_px
+    board_h_px = SQUARES_Y * square_px
 
-                # Dodanie markera ARUCO w środku czarnego kwadratu
-                marker_x = x + (square_size_px - marker_size_px) // 2
-                marker_y = y + (square_size_px - marker_size_px) // 2
+    # Pasek skali – w px
+    scale_len_px = mm_to_px(SCALE_MM, DPI)
+    scale_th_px  = max(1, mm_to_px(SCALE_THICK_MM, DPI))
+    tick_th_px   = max(1, mm_to_px(TICK_THICK_MM,  DPI))
+    tick_len_px  = mm_to_px(TICK_LEN_MM, DPI)
+    gap_px       = mm_to_px(GAP_MM, DPI)
+    label_off_px = mm_to_px(LABEL_OFFSET_MM, DPI)
 
-                # Generowanie markera ARUCO
-                marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, marker_size_px)
-
-                # Umieszczenie markera na obrazie
-                img[marker_y:marker_y+marker_size_px, marker_x:marker_x+marker_size_px] = marker
-
-                marker_id += 1
-            else:  # Biały kwadrat
-                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 255, -1)
-
-    # Dodanie wzorca skali 10 cm (100 mm)
-    scale_length_mm = 100
-    scale_length_px = int(scale_length_mm * DPI / MM_TO_INCH)
-
-    # Pozycja wzorca skali (na dole kartki)
-    scale_y = height_px - int(20 * DPI / MM_TO_INCH)  # 20mm od dołu
-    scale_x_start = width_px // 2 - scale_length_px // 2
-    scale_x_end = scale_x_start + scale_length_px
-
-    # Rysowanie linii skali
-    cv2.line(img, (scale_x_start, scale_y), (scale_x_end, scale_y), 0, 3)
-
-    # Dodanie oznaczeń końców linii
-    cv2.line(img, (scale_x_start, scale_y - 10), (scale_x_start, scale_y + 10), 0, 2)
-    cv2.line(img, (scale_x_end, scale_y - 10), (scale_x_end, scale_y + 10), 0, 2)
-
-    # Dodanie tekstu z opisem skali
-    font = cv2.FONT_HERSHEY_SIMPLEX
+    # Tekst „100 mm” – oblicz rozmiar przed centrowaniem pionowym
+    label = '100 mm'
     font_scale = 0.8
-    thickness = 2
+    thickness = max(1, int(round(2 * DPI / 300)))
+    text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
 
-    text = "100 mm"
-    text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
-    text_x = scale_x_start + (scale_length_px - text_size[0]) // 2
-    text_y = scale_y + 30
+    # Całkowita wysokość kompozycji (plansza + przerwa + pasek + pół długości kresek + odstęp + napis)
+    below_bar_extra = (tick_len_px // 2) + label_off_px + text_size[1]
+    content_h_px = board_h_px + gap_px + scale_th_px + below_bar_extra
 
-    cv2.putText(img, text, (text_x, text_y), font, font_scale, 0, thickness)
+    # Wyśrodkowanie kompozycji na A4
+    x0 = (width_px  - board_w_px) // 2
+    y0 = (height_px - content_h_px) // 2
 
-    return img, DPI
+    # Pozycje paska 100 mm
+    scale_x0 = (width_px - scale_len_px) // 2
+    scale_y  = y0 + board_h_px + gap_px  # górna krawędź paska
 
-def save_pattern_pdf(filename="charuco_calibration_pattern.pdf"):
-    """
-    Generuje wzorzec ChArUco w PDF z dokładnymi wymiarami A4
-    Używa OpenCV do generowania obrazu, potem konwertuje na PDF
-    """
-    # Utwórz folder 'patterns' jeśli nie istnieje
-    patterns_dir = "patterns"
-    if not os.path.exists(patterns_dir):
-        os.makedirs(patterns_dir)
-        print(f"Utworzono folder: {patterns_dir}")
-
-    # Wymiary A4 w mm
-    A4_WIDTH_MM = 210
-    A4_HEIGHT_MM = 297
-
-    # Rozdzielczość DPI dla wysokiej jakości
-    DPI = 300
-    MM_TO_INCH = 25.4
-
-    # Konwersja mm na piksele
-    width_px = int(A4_WIDTH_MM * DPI / MM_TO_INCH)
-    height_px = int(A4_HEIGHT_MM * DPI / MM_TO_INCH)
-
-    print(f"Wymiary A4: {A4_WIDTH_MM}x{A4_HEIGHT_MM} mm")
-    print(f"Rozdzielczość: {DPI} DPI")
-    print(f"Rozmiar obrazu: {width_px}x{height_px} pikseli")
-
-    # Tworzenie białego tła
-    img = np.ones((height_px, width_px), dtype=np.uint8) * 255
-
-    # Parametry ChArUco
-    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_1000)
-
-    # Rozmiar kwadratu szachownicy w mm (wymagany przez użytkownika)
-    square_size_mm = 40
-    square_size_px = int(square_size_mm * DPI / MM_TO_INCH)
-
-    # Rozmiar markera ARUCO w mm (proporcjonalny do kwadratu)
-    marker_size_mm = square_size_mm * 0.8  # 80% rozmiaru kwadratu
-    marker_size_px = int(marker_size_mm * DPI / MM_TO_INCH)
-
-    # Wymiary planszy ChArUco: 4x6 pól (wymagane przez użytkownika)
-    squares_per_row = 4
-    squares_per_col = 6
-
-    print(f"Kwadraty w rzędzie: {squares_per_row}")
-    print(f"Kwadraty w kolumnie: {squares_per_col}")
-    print(f"Rozmiar kwadratu: {square_size_mm} mm")
-    print(f"Rozmiar markera ARUCO: {marker_size_mm:.1f} mm")
-
-    # Oblicz wymiary całej planszy ChArUco
-    board_width_px = squares_per_row * square_size_px
-    board_height_px = squares_per_col * square_size_px
-
-    # Wyśrodkowanie planszy na kartce A4
-    x0 = (width_px - board_width_px) // 2
-    y0 = (height_px - board_height_px) // 2
-
-    # Generowanie wzorca ChArUco
+    # Rysuj planszę (czarne/białe pola) i markery w czarnych polach
     marker_id = 0
-    for row in range(squares_per_col):
-        for col in range(squares_per_row):
-            if marker_id >= 250:  # Maksymalna liczba markerów w słowniku
-                break
-
-            # Pozycja kwadratu
-            x = x0 + col * square_size_px
-            y = y0 + row * square_size_px
-
-            # Rysowanie kwadratu szachownicy
-            if (row + col) % 2 == 0:  # Czarny kwadrat
-                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 0, -1)
-
-                # Dodanie markera ARUCO w środku czarnego kwadratu
-                marker_x = x + (square_size_px - marker_size_px) // 2
-                marker_y = y + (square_size_px - marker_size_px) // 2
-
-                # Generowanie markera ARUCO
-                marker = cv2.aruco.generateImageMarker(aruco_dict, marker_id, marker_size_px)
-
-                # Umieszczenie markera na obrazie
-                img[marker_y:marker_y+marker_size_px, marker_x:marker_x+marker_size_px] = marker
-
+    for r in range(SQUARES_Y):
+        for c in range(SQUARES_X):
+            x = x0 + c * square_px
+            y = y0 + r * square_px
+            is_black = ((r + c) % 2 == 0)
+            color = (0, 0, 0) if is_black else (255, 255, 255)
+            cv2.rectangle(img, (x, y), (x + square_px, y + square_px), color, -1)
+            if is_black:
+                mx = x + (square_px - marker_px) // 2
+                my = y + (square_px - marker_px) // 2
+                # Generowanie markera (kompatybilnie z wersjami OpenCV)
+                if hasattr(aruco, 'drawMarker'):
+                    m = aruco.drawMarker(dictionary, marker_id, marker_px)
+                else:
+                    m = aruco.generateImageMarker(dictionary, marker_id, marker_px)
+                img[my:my + marker_px, mx:mx + marker_px] = cv2.cvtColor(m, cv2.COLOR_GRAY2BGR)
                 marker_id += 1
-            else:  # Biały kwadrat
-                cv2.rectangle(img, (x, y), (x + square_size_px, y + square_size_px), 255, -1)
 
-    # Dodanie wzorca skali 10 cm (100 mm)
-    scale_length_mm = 100
-    scale_length_px = int(scale_length_mm * DPI / MM_TO_INCH)
+    # Pasek 100 mm + kreski końcowe
+    cv2.rectangle(img, (scale_x0, scale_y), (scale_x0 + scale_len_px, scale_y + scale_th_px), (0, 0, 0), -1)
+    cv2.rectangle(img, (scale_x0, scale_y - tick_len_px // 2), (scale_x0 + tick_th_px, scale_y + tick_len_px // 2), (0, 0, 0), -1)
+    cv2.rectangle(img, (scale_x0 + scale_len_px - tick_th_px, scale_y - tick_len_px // 2), (scale_x0 + scale_len_px, scale_y + tick_len_px // 2), (0, 0, 0), -1)
 
-    # Pozycja wzorca skali (na dole kartki)
-    scale_y = height_px - int(20 * DPI / MM_TO_INCH)  # 20mm od dołu
-    scale_x_start = width_px // 2 - scale_length_px // 2
-    scale_x_end = scale_x_start + scale_length_px
-    
-    # Rysowanie linii skali
-    cv2.line(img, (scale_x_start, scale_y), (scale_x_end, scale_y), 0, 3)
-    
-    # Dodanie oznaczeń końców linii
-    cv2.line(img, (scale_x_start, scale_y - 10), (scale_x_start, scale_y + 10), 0, 2)
-    cv2.line(img, (scale_x_end, scale_y - 10), (scale_x_end, scale_y + 10), 0, 2)
-    
-    # Dodanie tekstu z opisem skali
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.8
-    thickness = 2
-    
-    text = "100 mm"
-    text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
-    text_x = scale_x_start + (scale_length_px - text_size[0]) // 2
-    text_y = scale_y + 30
-    
-    cv2.putText(img, text, (text_x, text_y), font, font_scale, 0, thickness)
-    
-    # Konwersja na PDF
-    full_path = os.path.join(patterns_dir, filename)
-    
-    # Użyj matplotlib do konwersji obrazu na PDF
-    fig, ax = plt.subplots(figsize=(A4_WIDTH_MM/25.4, A4_HEIGHT_MM/25.4), dpi=DPI)
-    ax.imshow(img, cmap='gray', extent=[0, A4_WIDTH_MM, 0, A4_HEIGHT_MM], aspect='equal', origin='lower')
-    ax.set_xlim(0, A4_WIDTH_MM)
-    ax.set_ylim(0, A4_HEIGHT_MM)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    
-    # Zapisz do PDF
-    with PdfPages(full_path) as pdf:
-        pdf.savefig(fig, bbox_inches='tight', pad_inches=0)
-        plt.close(fig)
-    
-    print(f"Wzorzec ChArUco zapisany jako PDF: {full_path}")
-    print("✅ Gotowy do wydruku w skali 100% na papierze A4!")
-    
-    return full_path
+    # Podpis pod paskiem
+    tx = (width_px - text_size[0]) // 2
+    ty = scale_y + scale_th_px + label_off_px + text_size[1]
+    cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness, lineType=cv2.LINE_AA)
 
-def display_pattern(img):
-    """
-    Wyświetla wzorzec na ekranie
-    """
-    plt.figure(figsize=(12, 16))
-    plt.imshow(img, cmap='gray')
-    plt.title('Wzorzec ChArUco do kalibracji kamery (A4)')
-    plt.axis('off')
-    plt.tight_layout()
-    plt.show()
+    # Zapis JPG z DPI
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    Image.fromarray(img[..., ::-1]).save(out_path, format='JPEG', quality=95, dpi=(DPI, DPI))
+    print(f'Zapisano: {out_path}')
+    return out_path
 
-def main():
-    """
-    Główna funkcja programu
-    """
-    print("=== Generator wzorca ChArUco do kalibracji kamery ===")
-    print("Generowanie wzorca ChArUco (szachownica + ARUCO) w PDF na kartce A4 z wzorcem skali 10 cm...")
-    
-    # Generowanie wzorca bezpośrednio w PDF
-    pattern_path = save_pattern_pdf()
-    
-    print("\n=== Informacje o wzorcu ChArUco ===")
-    print(f"Format: PDF")
-    print(f"Wymiary A4: 210 x 297 mm")
-    print(f"Wzorzec skali: 100 mm (dokładnie)")
-    print(f"Rozmiar kwadratu szachownicy: 20 mm")
-    print(f"Rozmiar markera ARUCO: 16 mm")
-    print(f"Zapisano w folderze: patterns/")
-    print(f"\n📄 PLIK DO WYDRUKU: {os.path.basename(pattern_path)}")
-    print("✅ Wzorzec ChArUco gotowy do wydruku w skali 100% na papierze A4!")
-    print("💡 Uwaga: Wydrukuj w skali 100% - wzorzec skali będzie dokładnie 100mm!")
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    generate_charuco_jpg()
